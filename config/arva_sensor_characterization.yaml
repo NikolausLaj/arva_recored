@@ -1,0 +1,28 @@
+test_type: arva_sensor_characterization
+
+recording:
+  topics:
+    - /arva_test_protocol/event
+    - /pieps/measurement
+    - /fmu/out/vehicle_local_position
+    - /fmu/out/vehicle_attitude
+
+artifacts:
+  parameter_files: []
+
+metadata_defaults:
+  coordinate_convention: PX4 local NED (x North, y East, z Down)
+  receiver_reference: ARVA receiver antenna phase center
+
+test:
+  mode: static_or_manually_positioned
+  repetitions: 5
+  timeout_s: 300
+  transmitter_position_ned_m: []
+  transmitter_heading_rad: null
+  receiver_positions_ned_m: []
+  receiver_headings_rad: []
+
+analysis:
+  kind: arva_characterization
+  samples: []

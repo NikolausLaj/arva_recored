@@ -1,0 +1,43 @@
+test_type: full_search
+
+recording:
+  topics:
+    - /arva_test_protocol/event
+    - /arva_master/mode_state
+    - /parameter_events
+    - /pieps/measurement
+    - /fmu/out/vehicle_local_position
+    - /fmu/out/vehicle_attitude
+    - /terrain_controller/cmd_vel
+    - /fluxline_controller/cmd_vel
+    - /finesearch_controller/cmd_vel
+    - /finesearch_controller/completed
+    - /finesearch_controller/estimated_position
+    - /finesearch_controller/state
+
+artifacts:
+  parameter_files:
+    - px4_roscon_25/arva_master/cfg/fine_search.yaml
+    - px4_roscon_25/arva_master/cfg/fluxline_follow.yaml
+    - px4_roscon_25/arva_master/cfg/mode_executor.yaml
+    - px4_roscon_25/arva_master/cfg/terrain_follow.yaml
+    - px4_roscon_25/arva_master/cfg/waypoint_follow.yaml
+
+metadata_defaults:
+  coordinate_convention: PX4 local NED (x North, y East, z Down)
+  receiver_reference: ARVA receiver antenna phase center
+
+test:
+  search_polygon_ned_m: []
+  planned_coverage_waypoints_ned_m: []
+  waypoint_parameter: waypoints_ned
+  transmitter_position_ned_m: []
+  transmitter_heading_rad: null
+  reset_fine_search_before_run: true
+  auto_complete_on_fine_search: false
+  repetitions: 3
+  timeout_s: 900
+
+analysis:
+  kind: full_search
+  require_land_transition: true

@@ -1,0 +1,32 @@
+test_type: fluxline_follow
+
+recording:
+  topics:
+    - /arva_test_protocol/event
+    - /arva_master/mode_state
+    - /pieps/measurement
+    - /fmu/out/vehicle_local_position
+    - /fmu/out/vehicle_attitude
+    - /terrain_controller/cmd_vel
+    - /fluxline_controller/cmd_vel
+
+artifacts:
+  parameter_files:
+    - px4_roscon_25/arva_master/cfg/fluxline_follow.yaml
+    - px4_roscon_25/arva_master/cfg/terrain_follow.yaml
+    - px4_roscon_25/arva_master/cfg/mode_executor.yaml
+
+metadata_defaults:
+  coordinate_convention: PX4 local NED (x North, y East, z Down)
+  receiver_reference: ARVA receiver antenna phase center
+
+test:
+  transmitter_position_ned_m: []
+  transmitter_heading_rad: null
+  start_conditions: []
+  repetitions_per_start_condition: 3
+  fine_search_transition_distance_m: null
+  timeout_s: 300
+
+analysis:
+  kind: fluxline_follow

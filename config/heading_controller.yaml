@@ -1,0 +1,32 @@
+test_type: heading_controller
+
+recording:
+  topics:
+    - /arva_test_protocol/event
+    - /arva_master/mode_state
+    - /pieps/measurement
+    - /fmu/out/vehicle_local_position
+    - /fmu/out/vehicle_attitude
+    - /fluxline_controller/cmd_vel
+
+artifacts:
+  parameter_files:
+    - px4_roscon_25/arva_master/cfg/fluxline_follow.yaml
+    - px4_roscon_25/arva_master/cfg/mode_executor.yaml
+
+metadata_defaults:
+  coordinate_convention: PX4 local NED (x North, y East, z Down)
+  flight_condition: operator-stabilized hover with zero commanded linear velocity
+
+test:
+  heading_offsets_deg: [-10.0, 10.0, -20.0, 20.0, -30.0, 30.0]
+  repetitions_per_offset: 3
+  commanded_linear_velocity_mps: 0.0
+  timeout_s: 180
+  convergence_threshold_deg: 5.0
+
+analysis:
+  kind: heading_controller
+  settling_band_deg: 5.0
+  steady_state_window_s: 5.0
+  segments: []

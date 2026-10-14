@@ -1,0 +1,30 @@
+test_type: waypoint_follow
+
+recording:
+  topics:
+    - /arva_test_protocol/event
+    - /arva_master/mode_state
+    - /parameter_events
+    - /fmu/out/vehicle_local_position
+    - /fmu/out/vehicle_attitude
+    - /terrain_controller/cmd_vel
+
+artifacts:
+  parameter_files:
+    - px4_roscon_25/arva_master/cfg/waypoint_follow.yaml
+    - px4_roscon_25/arva_master/cfg/terrain_follow.yaml
+    - px4_roscon_25/arva_master/cfg/mode_executor.yaml
+
+metadata_defaults:
+  coordinate_convention: PX4 local NED (x North, y East, z Down)
+
+test:
+  planned_waypoints_ned_m: []
+  waypoint_parameter: waypoints_ned
+  velocity_configuration: simulation_selected
+  include_slower_reference_flight: false
+  timeout_s: 300
+
+analysis:
+  kind: waypoint_follow
+  turn_threshold_deg: 60.0

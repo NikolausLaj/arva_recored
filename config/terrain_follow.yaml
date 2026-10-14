@@ -1,0 +1,29 @@
+test_type: terrain_follow
+
+recording:
+  topics:
+    - /arva_test_protocol/event
+    - /parameter_events
+    - /fmu/out/vehicle_local_position
+    - /fmu/out/vehicle_attitude
+    - /terrain_controller/cmd_vel
+
+artifacts:
+  parameter_files:
+    - px4_roscon_25/arva_master/cfg/terrain_follow.yaml
+
+metadata_defaults:
+  coordinate_convention: PX4 local NED (x North, y East, z Down)
+  range_reference: PX4 VehicleLocalPosition.dist_bottom
+
+test:
+  step_targets_agl_m: [1.0, 1.5, 1.0]
+  terrain_tracking_target_agl_m: 1.25
+  timeout_s: 240
+  repetitions: 3
+
+analysis:
+  kind: terrain_follow
+  settling_band_m: 0.15
+  steady_state_window_s: 5.0
+  segments: []
