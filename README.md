@@ -122,6 +122,41 @@ The shortcut also supports `--workspace-root`, `--operator`, `--run-id`, and
 `--dry-run`. If you set a runtime route, pass the same flattened north/east pairs
 with `--waypoints-ned 0 0 0 20 10 20`; this supplies the analysis reference only.
 
+For a fluxline-following trial, use:
+
+```sh
+ros2 run arva_test_protocol arva_test_fluxline
+```
+
+This starts MCAP recording in the next numbered folder under
+`tests/sitl/fluxline_follow/run_001/bag/` (`run_002`, `run_003`, ... for later runs).
+Start the normal SITL stack separately, start recording, perform the trial, then
+press `Ctrl-C` to stop and save. Each run includes the fluxline, terrain, and
+mode-executor parameter snapshots, plus the planned transmitter position in
+`config.yaml`. The command prints the saved bag location and analysis command;
+analysis uses the recorded `fluxline_follow` mode interval without event markers.
+
+Mode changes are recorded as timestamped `std_msgs/msg/String` messages on
+`/arva_master/mode_state`, including `waypoint_follow`, `fluxline_follow`, and
+`fine_search`. Use the timestamp of the first `fine_search` message after
+`fluxline_follow` as the cut point. The latest published state is retained for
+recorders that start mid-mode; this initial sample marks the state at recorder
+subscription time, rather than its original entry time. Only the latest state
+is retained, so transitions before recording starts are not replayed.
+After updating, rebuild `arva_master` and `arva_test_protocol` together and restart
+the ARVA stack before recording so the publisher and recorder use matching QoS.
+
+The transmitter analysis reference comes from `test.transmitter_position_ned_m`
+in the test template when populated, otherwise from
+`px4_roscon_25/arva_sim/cfg/arva_sim.yaml`. The simulator YAML is also copied to
+`parameters/arva_sim.yaml` for each run, and its heading is saved in radians in
+the run configuration when the simulator provides the analysis reference.
+Ensure the running simulator matches that saved configuration.
+Use `--transmitter-ned 30 20 0` to override the
+analysis reference explicitly; this does not change the simulator.
+The shortcut also supports `--workspace-root`, `--operator`, `--run-id`, and
+`--dry-run`. Use `arva_test_finish` to declare the trial outcome separately.
+
 Keep simulated runs separate from future physical-flight data. In the workshop
 container, save them under the mounted repository so they are also available on
 the host. The mount configuration does not need to change. Use the repository

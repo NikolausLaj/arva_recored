@@ -339,6 +339,15 @@ def record_run(
         }
         for topic in topics if topic.startswith('/fmu/out/')
     }
+    if '/arva_master/mode_state' in topics:
+        # Match the executor's durable publisher to receive its latest state
+        # even when recording starts after the mode was entered.
+        qos_overrides['/arva_master/mode_state'] = {
+            'reliability': 'reliable',
+            'durability': 'transient_local',
+            'history': 'keep_last',
+            'depth': 10,
+        }
     qos_arguments = []
     if qos_overrides:
         qos_path = resolved_run_directory / 'qos_overrides.yaml'

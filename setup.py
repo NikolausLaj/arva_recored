@@ -31,6 +31,7 @@ setup(
             'arva_test_heading = arva_test_protocol.heading_run:heading_main',
             'arva_test_terrain = arva_test_protocol.terrain_run:terrain_main',
             'arva_test_waypoint = arva_test_protocol.waypoint_run:waypoint_main',
+            'arva_test_fluxline = arva_test_protocol.fluxline_run:fluxline_main',
             'arva_test_prepare = arva_test_protocol.run_manager:prepare_main',
             'arva_test_record = arva_test_protocol.run_manager:record_main',
             'arva_test_finish = arva_test_protocol.run_manager:finish_main',

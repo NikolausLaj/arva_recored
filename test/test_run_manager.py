@@ -88,13 +88,18 @@ def test_recording_storage_selection_preserves_run_lifecycle(tmp_path, monkeypat
     assert command[command.index('--output') + 1] == str(run_directory / 'bag')
     qos_path = Path(command[command.index('--qos-profile-overrides-path') + 1])
     assert qos_path == run_directory / 'qos_overrides.yaml'
-    assert load_yaml(qos_path) == {
+    expected_qos = {
         topic: {
             'reliability': 'best_effort', 'durability': 'volatile',
             'history': 'keep_last', 'depth': 10,
         }
         for topic in ['/fmu/out/vehicle_local_position', '/fmu/out/vehicle_attitude']
     }
+    expected_qos['/arva_master/mode_state'] = {
+        'reliability': 'reliable', 'durability': 'transient_local',
+        'history': 'keep_last', 'depth': 10,
+    }
+    assert load_yaml(qos_path) == expected_qos
     assert '/pieps/measurement' in command
     metadata = load_yaml(run_directory / 'metadata.yaml')
     assert metadata['status'] == 'recording_stopped'
