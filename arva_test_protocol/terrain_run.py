@@ -1,4 +1,4 @@
-"""Prepare and record a constant-target SITL terrain trial with one command."""
+"""Prepare and record a constant-target terrain trial with one command."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from typing import Any, Sequence
 
 import yaml
 
-from .quick_run import require_mcap, workspace_root
+from .paths import artifact_path
+from .quick_run import add_run_options, require_mcap, run_configuration, workspace_root
 from .run_manager import prepare_run, record_run, validate_recording_configuration
 from .yaml_utils import ProtocolError, dump_yaml, load_yaml
 
@@ -61,11 +62,12 @@ def _positive_target(value: Any) -> float:
 def terrain_main(arguments: Sequence[str] | None = None) -> int:
     """Prepare the next terrain run and record MCAP until Ctrl-C."""
     parser = argparse.ArgumentParser(
-        description='Record a constant-target SITL terrain trial to MCAP; stop with Ctrl-C.'
+        description='Record a constant-target terrain trial to MCAP; stop with Ctrl-C.'
     )
     parser.add_argument('--workspace-root', help='Repository root; detected by default')
     parser.add_argument('--run-id', help='Run ID; defaults to the next available number')
     parser.add_argument('--operator', help='Operator name saved with the run')
+    add_run_options(parser)
     target_options = parser.add_mutually_exclusive_group()
     target_options.add_argument(
         '--target-agl', type=float,
@@ -94,10 +96,10 @@ def terrain_main(arguments: Sequence[str] | None = None) -> int:
             target = _target_from_parameters(runtime_parameters)
             target_source = f'{_NODE}.target_distance at recording start'
         else:
-            target = _target_from_parameters(load_yaml(root / _PARAMETERS))
+            target = _target_from_parameters(load_yaml(artifact_path(root, _PARAMETERS)))
             target_source = 'source controller YAML'
 
-        config = load_yaml(root / _TEMPLATE)
+        source, config, output = run_configuration(root, _TEMPLATE, options)
         config['analysis']['segments'] = [{
             'id': 'terrain_tracking',
             'start_offset_s': 0.0,
@@ -109,14 +111,14 @@ def terrain_main(arguments: Sequence[str] | None = None) -> int:
         config['test']['repetitions'] = 1
         validate_recording_configuration(config, {})
         run_directory = prepare_run(
-            config_path=root / _TEMPLATE,
-            output_root=root / 'tests/sitl',
+            config_path=source,
+            output_root=output,
             workspace_root=root,
             run_id=options.run_id,
             operator=options.operator,
             notes=f'Constant-target terrain trial; target from {target_source}.',
+            configuration=config,
         )
-        dump_yaml(run_directory / 'config.yaml', config)
         if runtime_parameters is not None:
             dump_yaml(
                 run_directory / 'parameters/terrain_follow_runtime.yaml', runtime_parameters

@@ -13,6 +13,7 @@ import subprocess
 import sys
 from typing import Any, Sequence
 
+from .paths import artifact_path
 from .trajectory import parse_xy_waypoints
 from .yaml_utils import ProtocolError, dump_yaml, load_yaml, merge_mappings
 
@@ -218,7 +219,7 @@ def _copy_parameter_files(
     for parameter_file in parameter_files:
         if not isinstance(parameter_file, str):
             raise ProtocolError('each artifacts.parameter_files value must be a path string')
-        source = _absolute_path(parameter_file, workspace_root)
+        source = artifact_path(workspace_root, parameter_file)
         if not source.is_file():
             raise ProtocolError(f'parameter file does not exist: {source}')
         destination = destination_directory / source.name
@@ -241,9 +242,10 @@ def prepare_run(
     notes: str | None = None,
     metadata_path: Path | None = None,
     software_revision: str | None = None,
+    configuration: dict[str, Any] | None = None,
 ) -> Path:
     """Create an immutable experiment directory before the operator flies."""
-    config = load_yaml(config_path)
+    config = load_yaml(config_path) if configuration is None else configuration
     test_type = config.get('test_type')
     if not isinstance(test_type, str):
         raise ProtocolError('test_type must be a string')
@@ -273,6 +275,7 @@ def prepare_run(
             ),
             'workspace_root': str(workspace_root),
             'configuration_source': str(config_path),
+            'recorder_commit': _git_commit(Path(__file__).resolve().parent.parent),
         }
     )
     if operator:
@@ -282,7 +285,10 @@ def prepare_run(
     _append_state(metadata, 'prepared')
 
     run_directory.mkdir(parents=True)
-    shutil.copy2(config_path, run_directory / 'config.yaml')
+    if configuration is None:
+        shutil.copy2(config_path, run_directory / 'config.yaml')
+    else:
+        dump_yaml(run_directory / 'config.yaml', config)
     (run_directory / 'recording_topics.txt').write_text(
         '\n'.join(topics) + '\n', encoding='utf-8'
     )

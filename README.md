@@ -1,4 +1,4 @@
-# ARVA Real-World Test Protocol
+# ARVA Flight Test Recording and Analysis
 
 `arva_test_protocol` prepares reproducible flight-test directories and records
 existing ROS 2 topics. It does not arm a vehicle, select a PX4 mode, publish
@@ -25,6 +25,75 @@ search, and complete-search experiments. Fill in the geometry and operational
 values in a copy of the relevant template before preparing a flight.
 
 ## Workflow
+
+### Standalone installation on the drone
+
+This repository is `arva_recored`; the ROS package and commands retain the name
+`arva_test_protocol`. It can be cloned directly into the drone's ROS 2 workspace
+or used as a submodule in the workshop. It does not require the workshop or
+`arva_sim` for physical-flight recording and analysis.
+
+In the existing drone workspace, with the production dependencies available
+(`arva_master`, `pieps_interfacer`, and the matching `px4_msgs`):
+
+```sh
+cd /path/to/drone_ws
+git clone https://github.com/NikolausLaj/arva_recored.git src/arva_test_protocol
+source /opt/ros/humble/setup.bash
+# Source any separate production dependency workspace here, if used.
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --packages-up-to arva_test_protocol
+source install/setup.bash
+```
+
+The heading, terrain, waypoint, and fluxline shortcuts all accept:
+
+- `--environment sitl` (default) or `--environment real_world`.
+- `--workspace-root /path/to/drone_ws` for artifact discovery and relative paths.
+- `--output-root /path/to/recordings` to store data independently of this repository.
+- `--config /path/to/test.yaml` to use an edited template.
+- `--dry-run` to prepare and inspect a run without starting recording.
+
+For example, prepare a physical waypoint test using the actual commanded route:
+
+```sh
+ros2 run arva_test_protocol arva_test_waypoint \
+  --workspace-root /path/to/drone_ws \
+  --environment real_world \
+  --output-root "$HOME/arva-recordings/real_world" \
+  --waypoints-ned 0 0 0 20 10 20 \
+  --dry-run
+```
+
+Remove `--dry-run` to prepare the next run and start MCAP recording. The route
+argument supplies the analysis reference; configure the production controller's
+route separately. Physical waypoint tests use a route from the test YAML,
+`mode_executor.yaml`, or `--waypoints-ned`; they do not parse C++ fallback routes.
+Physical fluxline tests require a surveyed `--transmitter-ned N E D` or a
+transmitter position in the test YAML, and never use simulator geometry.
+
+Templates resolve from this source checkout or the installed ROS package share.
+Parameter snapshots resolve from the workshop, `src/arva_master`, sibling source
+packages, or the installed `arva_master` share directory. Absolute parameter-file
+paths in a custom test YAML are also supported. Saved configuration files must
+match the running controllers; capture runtime overrides separately. Terrain
+tests also support `--live-parameters` to snapshot the current target.
+
+Each run records its environment and the recorder Git commit when source Git
+metadata is available. Use the generic prepare command's `--software-revision`
+or `--metadata-file` for deployment revisions not available through Git.
+
+Store bags and results outside this package. The workshop's existing
+`tests/sitl` output remains in the workshop repository; those recordings were
+not moved into this standalone code repository.
+
+### Workshop installation
+
+From the workshop repository, initialize its submodules before building:
+
+```sh
+git submodule update --init --recursive
+```
 
 Build and source the ROS workspace in the project's ROS/Docker environment:
 
@@ -62,8 +131,8 @@ offsets; document the actual offset in the run configuration if needed. The copi
 parameter files contain saved settings; runtime parameter overrides still need
 to be captured separately.
 
-The repository is detected from the current directory or the standard workshop
-path. For another checkout, pass `--workspace-root /path/to/roscon-25-workshop`.
+The workspace is detected from the current directory and its parents. For
+another checkout, pass `--workspace-root /path/to/roscon-25-workshop`.
 Optional flags include `--operator "Your Name"`, `--run-id 003`, and `--dry-run`
 (prepares a run without recording).
 

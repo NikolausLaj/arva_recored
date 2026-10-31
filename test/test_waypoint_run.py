@@ -20,7 +20,11 @@ def _repository(tmp_path, monkeypatch):
     for filename in load_yaml(template)['artifacts']['parameter_files']:
         destination = root / filename
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(_PACKAGE.parent.parent / filename, destination)
+        # Use a fixture rather than requiring an adjacent arva_master checkout.
+        if destination.name == 'mode_executor.yaml':
+            destination.write_text('/arva_master:\n  ros__parameters:\n    waypoints_ned: []\n')
+        else:
+            destination.write_text('example_parameter: 1\n')
     source = root / 'px4_roscon_25/arva_master/src/WaypointFollowMode.cpp'
     source.parent.mkdir(parents=True)
     source.write_text('''

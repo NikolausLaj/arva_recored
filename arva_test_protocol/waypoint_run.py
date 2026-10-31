@@ -1,4 +1,4 @@
-"""Prepare and record a single SITL waypoint-follow trial with one command."""
+"""Prepare and record a single waypoint-follow trial with one command."""
 
 from __future__ import annotations
 
@@ -8,10 +8,11 @@ import re
 import shlex
 from typing import Sequence
 
-from .quick_run import require_mcap, workspace_root
+from .paths import artifact_path
+from .quick_run import add_run_options, require_mcap, run_configuration, workspace_root
 from .run_manager import prepare_run, record_run, validate_recording_configuration
 from .trajectory import parse_xy_waypoints
-from .yaml_utils import ProtocolError, dump_yaml, load_yaml
+from .yaml_utils import ProtocolError, load_yaml
 
 
 _TEMPLATE = Path('px4_roscon_25/arva_test_protocol/config/waypoint_follow.yaml')
@@ -19,8 +20,8 @@ _PARAMETERS = Path('px4_roscon_25/arva_master/cfg/mode_executor.yaml')
 _SOURCE = Path('px4_roscon_25/arva_master/src/WaypointFollowMode.cpp')
 
 
-def _saved_waypoints(root: Path) -> tuple[list[list[float]], str]:
-    parameters = load_yaml(root / _PARAMETERS)
+def _saved_waypoints(root: Path, allow_source: bool = True) -> tuple[list[list[float]], str]:
+    parameters = load_yaml(artifact_path(root, _PARAMETERS))
     node = parameters.get('/arva_master', parameters.get('arva_master', {}))
     if not isinstance(node, dict) or not isinstance(node.get('ros__parameters'), dict):
         raise ProtocolError('Mode executor parameters must contain /arva_master.ros__parameters')
@@ -29,9 +30,15 @@ def _saved_waypoints(root: Path) -> tuple[list[list[float]], str]:
         points = parse_xy_waypoints(configured, 'waypoints_ned')
         return [list(point) for point in points], 'saved mode_executor.yaml waypoints_ned'
 
+    if not allow_source:
+        raise ProtocolError(
+            'Physical-flight analysis requires an explicit route in the test configuration, '
+            'mode_executor.yaml waypoints_ned, or --waypoints-ned.'
+        )
+
     # Read the actual fallback route instead of maintaining a second route here.
     try:
-        source = (root / _SOURCE).read_text(encoding='utf-8')
+        source = artifact_path(root, _SOURCE).read_text(encoding='utf-8')
     except OSError as error:
         raise ProtocolError(f'Cannot read fallback waypoints from {root / _SOURCE}') from error
     source = re.sub(r'/\*.*?\*/|//[^\n]*', '', source, flags=re.DOTALL)
@@ -53,11 +60,12 @@ def _saved_waypoints(root: Path) -> tuple[list[list[float]], str]:
 def waypoint_main(arguments: Sequence[str] | None = None) -> int:
     """Prepare the next waypoint run and record MCAP until Ctrl-C."""
     parser = argparse.ArgumentParser(
-        description='Record one SITL waypoint-follow trial to MCAP; stop with Ctrl-C.'
+        description='Record one waypoint-follow trial to MCAP; stop with Ctrl-C.'
     )
     parser.add_argument('--workspace-root', help='Repository root; detected by default')
     parser.add_argument('--run-id', help='Run ID; defaults to the next available number')
     parser.add_argument('--operator', help='Operator name saved with the run')
+    add_run_options(parser)
     parser.add_argument(
         '--waypoints-ned', nargs='+', type=float, metavar='COORDINATE',
         help='Analysis route as flattened north/east pairs, for runtime overrides. '
@@ -72,25 +80,32 @@ def waypoint_main(arguments: Sequence[str] | None = None) -> int:
         root = workspace_root(options.workspace_root, _TEMPLATE)
         if not options.dry_run:
             require_mcap()
-        if options.waypoints_ned is None:
-            waypoints, route_source = _saved_waypoints(root)
+        source, config, output = run_configuration(root, _TEMPLATE, options)
+        if options.waypoints_ned is None and config['test'].get('planned_waypoints_ned_m'):
+            waypoints = [list(point) for point in parse_xy_waypoints(
+                config['test']['planned_waypoints_ned_m'], 'planned_waypoints_ned_m'
+            )]
+            route_source = 'test configuration'
+        elif options.waypoints_ned is None:
+            waypoints, route_source = _saved_waypoints(
+                root, allow_source=options.environment == 'sitl'
+            )
         else:
             waypoints = [list(point) for point in parse_xy_waypoints(
                 options.waypoints_ned, '--waypoints-ned'
             )]
             route_source = '--waypoints-ned (analysis reference only)'
-        config = load_yaml(root / _TEMPLATE)
         config['test']['planned_waypoints_ned_m'] = waypoints
         validate_recording_configuration(config, {})
         run_directory = prepare_run(
-            config_path=root / _TEMPLATE,
-            output_root=root / 'tests/sitl',
+            config_path=source,
+            output_root=output,
             workspace_root=root,
             run_id=options.run_id,
             operator=options.operator,
             notes=f'Single waypoint-follow trial; planned route from {route_source}.',
+            configuration=config,
         )
-        dump_yaml(run_directory / 'config.yaml', config)
         print(f'[arva test protocol] run: {run_directory}', flush=True)
         print(f'[arva test protocol] planned NED route: {waypoints} ({route_source})', flush=True)
         print(

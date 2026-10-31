@@ -1,8 +1,9 @@
-"""Shared dependency and repository checks for quick SITL recordings."""
+"""Shared options and dependency checks for quick flight-test recordings."""
 
 from pathlib import Path
 
-from .yaml_utils import ProtocolError
+from .paths import template_path, workspace_root as workspace_root
+from .yaml_utils import ProtocolError, load_yaml
 
 
 def require_mcap() -> None:
@@ -22,20 +23,28 @@ def require_mcap() -> None:
         )
 
 
-def workspace_root(explicit_root: str | None, template: Path) -> Path:
-    """Find the repository containing the selected test template."""
-    if explicit_root:
-        candidates = [Path(explicit_root).expanduser().resolve()]
-    else:
-        current = Path.cwd()
-        candidates = [current, *current.parents]
-        candidates.extend([
-            current / 'src/roscon-25-workshop',
-            Path.home() / 'roscon-25-workshop_ws/src/roscon-25-workshop',
-        ])
-    for candidate in candidates:
-        if (candidate / template).is_file():
-            return candidate
-    raise ProtocolError(
-        'Cannot find the repository; pass --workspace-root /path/to/roscon-25-workshop'
+def add_run_options(parser) -> None:
+    """Add options shared by SITL and physical-flight shortcuts."""
+    parser.add_argument('--environment', choices=['sitl', 'real_world'], default='sitl')
+    parser.add_argument('--output-root', help='Run storage directory, relative to workspace root')
+    parser.add_argument('--config', help='Custom test YAML; defaults to the packaged template')
+
+
+def run_configuration(root: Path, template: Path, options):
+    """Load a template and select data paths without assuming a source layout."""
+    source = template_path(root, template, options.config)
+    config = load_yaml(source)
+    config.setdefault('metadata_defaults', {})['environment'] = options.environment
+    if options.environment == 'real_world':
+        artifacts = config.setdefault('artifacts', {})
+        artifacts['parameter_files'] = [
+            value for value in artifacts.get('parameter_files', [])
+            if 'arva_sim' not in Path(value).parts
+        ]
+    output = (
+        Path(options.output_root).expanduser()
+        if options.output_root else Path('tests') / options.environment
     )
+    if not output.is_absolute():
+        output = root / output
+    return source, config, output

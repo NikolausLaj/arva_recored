@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+install/
+log/
+tests/sitl/
+tests/real_world/
+*.mcap
+*.db3

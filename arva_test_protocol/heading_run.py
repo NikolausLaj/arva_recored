@@ -1,4 +1,4 @@
-"""Prepare and record a single SITL heading response with one command."""
+"""Prepare and record a single heading response with one command."""
 
 from __future__ import annotations
 
@@ -7,22 +7,23 @@ from pathlib import Path
 import shlex
 from typing import Sequence
 
-from .quick_run import require_mcap, workspace_root
+from .quick_run import add_run_options, require_mcap, run_configuration, workspace_root
 from .run_manager import prepare_run, record_run
-from .yaml_utils import ProtocolError, dump_yaml, load_yaml
+from .yaml_utils import ProtocolError
 
 
 _TEMPLATE = Path('px4_roscon_25/arva_test_protocol/config/heading_controller.yaml')
 
 
 def heading_main(arguments: Sequence[str] | None = None) -> int:
-    """Prepare the next SITL heading run and record MCAP until Ctrl-C."""
+    """Prepare the next heading run and record MCAP until Ctrl-C."""
     parser = argparse.ArgumentParser(
-        description='Record one SITL heading response to MCAP; stop with Ctrl-C.'
+        description='Record one heading response to MCAP; stop with Ctrl-C.'
     )
     parser.add_argument('--workspace-root', help='Repository root; detected by default')
     parser.add_argument('--run-id', help='Run ID; defaults to the next available number')
     parser.add_argument('--operator', help='Operator name saved with the run')
+    add_run_options(parser)
     parser.add_argument(
         '--dry-run', action='store_true',
         help='Prepare a run and print its command without starting recording',
@@ -32,7 +33,7 @@ def heading_main(arguments: Sequence[str] | None = None) -> int:
         root = workspace_root(options.workspace_root, _TEMPLATE)
         if not options.dry_run:
             require_mcap()
-        config = load_yaml(root / _TEMPLATE)
+        source, config, output = run_configuration(root, _TEMPLATE, options)
         # A quick run contains one response, without manual step boundaries.
         config['analysis']['segments'] = []
         config['analysis']['use_active_mode_interval'] = True
@@ -40,14 +41,14 @@ def heading_main(arguments: Sequence[str] | None = None) -> int:
         config['test']['heading_offsets_deg'] = []
         config['test']['repetitions_per_offset'] = 1
         run_directory = prepare_run(
-            config_path=root / _TEMPLATE,
-            output_root=root / 'tests/sitl',
+            config_path=source,
+            output_root=output,
             workspace_root=root,
             run_id=options.run_id,
             operator=options.operator,
             notes='Single heading response; analyze the fluxline_follow interval.',
+            configuration=config,
         )
-        dump_yaml(run_directory / 'config.yaml', config)
         print(f'[arva test protocol] run: {run_directory}', flush=True)
         print(
             '[arva test protocol] Start the heading trial after recording begins; '

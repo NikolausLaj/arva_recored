@@ -1,4 +1,4 @@
-"""Prepare and record a single SITL fluxline-follow trial with one command."""
+"""Prepare and record a single fluxline-follow trial with one command."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ from pathlib import Path
 import shlex
 from typing import Any, Sequence
 
-from .quick_run import require_mcap, workspace_root
+from .paths import artifact_path
+from .quick_run import add_run_options, require_mcap, run_configuration, workspace_root
 from .run_manager import prepare_run, record_run, validate_recording_configuration
-from .yaml_utils import ProtocolError, dump_yaml, load_yaml
+from .yaml_utils import ProtocolError, load_yaml
 
 
 _TEMPLATE = Path('px4_roscon_25/arva_test_protocol/config/fluxline_follow.yaml')
@@ -28,7 +29,7 @@ def _position(value: Any) -> list[float]:
 
 def _simulator_transmitter(root: Path) -> tuple[list[float], float]:
     """Read the transmitter analysis reference from the saved simulator YAML."""
-    config = load_yaml(root / _SIMULATOR_CONFIG)
+    config = load_yaml(artifact_path(root, _SIMULATOR_CONFIG))
     node = config.get('/arva_sim_node', config.get('arva_sim_node'))
     if not isinstance(node, dict) or not isinstance(node.get('ros__parameters'), dict):
         raise ProtocolError('Simulator YAML must contain arva_sim_node.ros__parameters')
@@ -46,11 +47,12 @@ def _simulator_transmitter(root: Path) -> tuple[list[float], float]:
 def fluxline_main(arguments: Sequence[str] | None = None) -> int:
     """Prepare the next fluxline run and record MCAP until Ctrl-C."""
     parser = argparse.ArgumentParser(
-        description='Record one SITL fluxline-follow trial to MCAP; stop with Ctrl-C.'
+        description='Record one fluxline-follow trial to MCAP; stop with Ctrl-C.'
     )
     parser.add_argument('--workspace-root', help='Repository root; detected by default')
     parser.add_argument('--run-id', help='Run ID; defaults to the next available number')
     parser.add_argument('--operator', help='Operator name saved with the run')
+    add_run_options(parser)
     parser.add_argument(
         '--transmitter-ned', nargs=3, type=float, metavar=('NORTH', 'EAST', 'DOWN'),
         help='Transmitter analysis reference in meters; defaults to the test configuration '
@@ -65,13 +67,27 @@ def fluxline_main(arguments: Sequence[str] | None = None) -> int:
         root = workspace_root(options.workspace_root, _TEMPLATE)
         if not options.dry_run:
             require_mcap()
-        config = load_yaml(root / _TEMPLATE)
+        source, config, output = run_configuration(root, _TEMPLATE, options)
+        if options.environment == 'sitl':
+            # Simulator snapshots belong to simulation runs, not the shared
+            # physical-flight template. An explicit reference also works when
+            # the simulator configuration is unavailable.
+            simulator = artifact_path(root, _SIMULATOR_CONFIG)
+            if simulator.is_file():
+                files = config.setdefault('artifacts', {}).setdefault('parameter_files', [])
+                if str(_SIMULATOR_CONFIG) not in files:
+                    files.append(str(_SIMULATOR_CONFIG))
         if options.transmitter_ned is not None:
             position = _position(options.transmitter_ned)
             position_source = '--transmitter-ned (analysis reference only)'
         elif config['test'].get('transmitter_position_ned_m', []) != []:
             position = _position(config['test']['transmitter_position_ned_m'])
             position_source = 'test configuration'
+        elif options.environment == 'real_world':
+            raise ProtocolError(
+                'Physical-flight analysis requires a surveyed transmitter position '
+                'in the test configuration or --transmitter-ned.'
+            )
         else:
             position, heading = _simulator_transmitter(root)
             position_source = 'saved arva_sim.yaml'
@@ -82,14 +98,14 @@ def fluxline_main(arguments: Sequence[str] | None = None) -> int:
         config['test']['repetitions_per_start_condition'] = 1
         validate_recording_configuration(config, {})
         run_directory = prepare_run(
-            config_path=root / _TEMPLATE,
-            output_root=root / 'tests/sitl',
+            config_path=source,
+            output_root=output,
             workspace_root=root,
             run_id=options.run_id,
             operator=options.operator,
             notes=f'Single fluxline-follow trial; transmitter position from {position_source}.',
+            configuration=config,
         )
-        dump_yaml(run_directory / 'config.yaml', config)
         print(f'[arva test protocol] run: {run_directory}', flush=True)
         print(
             f'[arva test protocol] transmitter NED: {position} ({position_source})', flush=True,

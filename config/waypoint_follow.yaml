@@ -22,7 +22,7 @@ metadata_defaults:
 test:
   planned_waypoints_ned_m: []
   waypoint_parameter: waypoints_ned
-  velocity_configuration: simulation_selected
+  velocity_configuration: operator_selected
   include_slower_reference_flight: false
   timeout_s: 300
 
