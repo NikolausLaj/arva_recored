@@ -124,6 +124,11 @@ command for that run. No YAML edits, manual run numbers, or event markers are
 needed. Stopping the recorder leaves the outcome undeclared; use
 `arva_test_finish` if you want to record `completed`, `failed`, or `aborted`.
 
+SITL heading runs also copy `arva_sim/cfg/arva_sim.yaml` to
+`parameters/arva_sim.yaml`, preserving `transmitter_position_ned_m` and
+`transmitter_heading_deg` for the run. Physical runs (`--environment real_world`)
+exclude this simulator snapshot.
+
 Analysis uses the existing `fluxline_follow` mode interval. Use one response per
 quick run; for multiple heading steps in one recording, use the explicit segment
 and event-marker workflow below. The quick run does not declare planned heading

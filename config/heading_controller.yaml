@@ -13,6 +13,7 @@ artifacts:
   parameter_files:
     - px4_roscon_25/arva_master/cfg/fluxline_follow.yaml
     - px4_roscon_25/arva_master/cfg/mode_executor.yaml
+    - px4_roscon_25/arva_sim/cfg/arva_sim.yaml
 
 metadata_defaults:
   coordinate_convention: PX4 local NED (x North, y East, z Down)
