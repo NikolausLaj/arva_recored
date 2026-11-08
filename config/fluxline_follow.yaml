@@ -25,7 +25,9 @@ test:
   transmitter_heading_rad: null
   start_conditions: []
   repetitions_per_start_condition: 3
-  fine_search_transition_distance_m: null
+  # Documentation of the executor's fine_search.transition_distance_m
+  # (px4_roscon_25/arva_master/cfg/mode_executor.yaml); keep in sync manually.
+  fine_search_transition_distance_m: 5.0
   timeout_s: 300
 
 analysis:
